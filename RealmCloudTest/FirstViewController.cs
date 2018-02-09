@@ -12,11 +12,19 @@ namespace RealmCloudTest
 {
     public partial class FirstViewController : UIViewController
     {
-        //change this by hand if you want to redo the test
-        private bool firstRun = true;
+        private Realm _uiRealm;
+        private Realm uiRealm
+        {
+            get
+            {
+                if (_uiRealm == null)
+                {
+                    _uiRealm = Help.RealmDB.RealmForAuthenticatedUser;
+                }
 
-
-        private Realm uiRealm;
+                return _uiRealm;
+            }
+        }
 
         protected FirstViewController(IntPtr handle) : base(handle)
         {
@@ -37,27 +45,31 @@ namespace RealmCloudTest
 
         async partial void TestSyncClicked(Foundation.NSObject sender)
         {
-            await CreateItem();
-            DisplayItem();
+            if (await Authenticate())
+            {
+                CreateTestRealmObject();
+                DisplayItem();
+
+                System.Console.WriteLine("Test successful");
+            }
+            else
+            {
+                System.Console.WriteLine("Test failed");
+            }
         }
 
-        private async Task CreateItem()
+        private async Task<bool> Authenticate() => await Help.RealmDB.AuthenticateDebugUser();
+
+        private void CreateTestRealmObject()
         {
-            var item = new Item() { Name = "Local recall successful" };
+            var testItem = new Item() { Name = "Local recall successful" };
 
-            if (!await Help.RealmDB.Authenticate(firstRun))
-            {
-                System.Console.WriteLine("Failed to authenticate");
-                return;
-            }
-
-            System.Console.WriteLine("Authentication successful");
-            PersistItem(item);
+            PersistItem(testItem);
         }
 
         private void PersistItem(Item item)
         {
-            using (var realm = Help.RealmDB.RealmForAuthenticatedUser())
+            using (var realm = Help.RealmDB.RealmForAuthenticatedUser)
             {
                 try
                 {
@@ -77,11 +89,6 @@ namespace RealmCloudTest
 
         private void DisplayItem()
         {
-            if (uiRealm == null)
-            {
-                uiRealm = Help.RealmDB.RealmForAuthenticatedUser();
-            }
-
             var item = uiRealm.All<Item>().FirstOrDefault();
 
             if (item != null)
